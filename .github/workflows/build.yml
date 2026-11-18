@@ -1,0 +1,47 @@
+name: Build desktop apps
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and sign universal bundle
+        run: |
+          mkdir -p build/arm64 build/x86_64
+          AGENT_OFFICE_MAC_ARCH=arm64 bash macos/build.sh "$PWD/build/arm64/Agent Office.app"
+          AGENT_OFFICE_MAC_ARCH=x86_64 bash macos/build.sh "$PWD/build/x86_64/Agent Office.app"
+          ditto 'build/arm64/Agent Office.app' 'build/Agent Office.app'
+          lipo -create -output 'build/Agent Office.app/Contents/MacOS/AgentOffice' \
+            'build/arm64/Agent Office.app/Contents/MacOS/AgentOffice' \
+            'build/x86_64/Agent Office.app/Contents/MacOS/AgentOffice'
+          codesign --force --sign - 'build/Agent Office.app'
+          codesign --verify --strict 'build/Agent Office.app'
+          'build/Agent Office.app/Contents/MacOS/AgentOffice' --status
+          (cd build && zip -q -X -r Agent-Office-macOS.zip 'Agent Office.app')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Office-macOS
+          path: build/Agent-Office-macOS.zip
+
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build Windows x64 bundle
+        run: |
+          ./windows/package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Office-Windows-x64
+          path: build/Agent-Office-Windows-x64.zip

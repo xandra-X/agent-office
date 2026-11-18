@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An interactive pixel-art office for coding agents.">
+<title>Agent Office</title>
+<link rel="stylesheet" href="style.css">
+<script src="scene.js" defer></script>
+<script src="office.js" defer></script>
+</head>
+<body>
+<header class="top"><a class="brand" href="./"><span class="logo" aria-hidden="true">▦</span> Agent Office</a><span class="toplabel">WORKSPACE / DEMO</span><button id="theme" class="secondary" aria-pressed="false">☾ Night mode</button></header>
+<main>
+<div class="intro"><div><div class="eyebrow"><i></i> OFFICE FLOOR</div><h1>Studio 01</h1><p>A shared workspace for your coding agents.</p></div><button class="primary" id="new-task">＋ New task</button></div>
+<div class="layout">
+<section class="map-card" aria-label="Office floor plan">
+<div class="panel-head"><span>▦ &nbsp; Floor plan</span><div class="map-controls"><span id="stats" class="muted"></span><button id="view" class="secondary" aria-pressed="true">3D</button></div></div>
+<div class="map spatial" id="map"><canvas id="floor" width="600" height="406" aria-hidden="true"></canvas><div id="markers"></div><span class="room desks">ENGINEERING</span><span class="room lounge">BREAK ROOM</span></div>
+<div class="legend"><span><i class="working"></i>Working</span><span><i class="waiting"></i>Needs input</span><span><i class="resting"></i>On break</span><span class="map-help">Select an agent to inspect</span></div>
+</section>
+<aside class="side"><section class="card"><div class="panel-head"><span>Agents</span><span class="count">05</span></div><div id="agents"></div></section>
+<section class="card details" id="details" aria-label="Selected agent"></section></aside>
+</div>
+<footer><span><i></i> Demo workspace</span><span>Sample sessions · No live connections</span></footer>
+</main>
+<dialog id="dialog"><form id="task-form"><div class="dialog-title"><h2>Assign a task</h2><button id="close" type="button" class="secondary" aria-label="Close">✕</button></div><label>Agent<select id="assignee"></select></label><label>Task<input id="task" required maxlength="100" placeholder="e.g. Add a dark mode toggle"></label><button class="primary">Start task</button></form></dialog>
+</body>
+</html>
