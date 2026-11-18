@@ -412,8 +412,8 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     private var notchPrompt: NSPanel!
     private let notchPromptHeight: CGFloat = 34
     private var ignoreUntilExit = false
-    private var outsideClicks: Any?
     private var panel: OfficePanel!
+    private var officeIsVisible: Bool { panel.isVisible && !panel.isMiniaturized }
     private var web: WKWebView!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -439,11 +439,11 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
 
     func applicationDidChangeScreenParameters(_ notification: Notification) {
-        if panel.isVisible { placeOffice() }
+        if officeIsVisible { placeOffice() }
         hideNotchPrompt()
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if !panel.isVisible { toggleOffice() }
+        if !officeIsVisible { toggleOffice() }
         return true
     }
 
@@ -452,7 +452,7 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
 
     private func checkNotchHover() {
-        guard !panel.isVisible, let screen = officeScreen,
+        guard !officeIsVisible, let screen = officeScreen,
               let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea,
               right.minX > left.maxX else { return }
 
@@ -561,12 +561,12 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         config.userContentController.add(self, name: "openSession")
         web = WKWebView(frame: .zero, configuration: config)
         panel = OfficePanel(contentRect: NSRect(x: 0, y: 0, width: 870, height: 660),
-                            styleMask: [.titled, .closable, .utilityWindow], backing: .buffered, defer: false)
+                            styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         panel.title = "Agent Office"
         panel.delegate = self
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
-        panel.level = .floating
+        panel.minSize = NSSize(width: 430, height: 400)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = web
         if let index = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "Office") {
@@ -583,7 +583,7 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
 
     @objc private func toggleOffice() {
-        if panel.isVisible { closeOffice() }
+        if officeIsVisible { closeOffice() }
         else { openOffice() }
     }
 
@@ -591,23 +591,13 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         hideNotchPrompt()
         placeOffice()
         NSApp.activate(ignoringOtherApps: true)
+        if panel.isMiniaturized { panel.deminiaturize(nil) }
         panel.makeKeyAndOrderFront(nil)
-        if outsideClicks == nil {
-            outsideClicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    if let self, self.panel.isVisible { self.closeOffice() }
-                }
-            }
-        }
         updateVisibility()
         refreshActivity()
     }
 
     private func closeOffice() {
-        if let outsideClicks {
-            NSEvent.removeMonitor(outsideClicks)
-            self.outsideClicks = nil
-        }
         panel.orderOut(nil)
         ignoreUntilExit = true
         updateVisibility()
@@ -618,19 +608,11 @@ final class OfficeApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         return false
     }
 
-    func applicationDidResignActive(_ notification: Notification) {
-        if panel?.isVisible == true { closeOffice() }
-    }
-
-    func windowDidResignKey(_ notification: Notification) {
-        Task { @MainActor [weak self] in
-            guard let self, self.panel.isVisible, !self.panel.isKeyWindow else { return }
-            self.closeOffice()
-        }
-    }
+    func windowDidMiniaturize(_ notification: Notification) { updateVisibility() }
+    func windowDidDeminiaturize(_ notification: Notification) { updateVisibility() }
 
     private func updateVisibility() {
-        if webReady { web.evaluateJavaScript("window.setOfficeVisibility(\(panel.isVisible))", completionHandler: nil) }
+        if webReady { web.evaluateJavaScript("window.setOfficeVisibility(\(officeIsVisible))", completionHandler: nil) }
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

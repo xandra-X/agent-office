@@ -25,7 +25,7 @@ sealed class OfficeWindow : ApplicationContext
     readonly Form panel = new()
     {
         Text = "Agent Office", Size = new Size(880, 670), MinimumSize = new Size(430, 430),
-        StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false, TopMost = true
+        StartPosition = FormStartPosition.CenterScreen
     };
     readonly NotifyIcon tray = new();
     readonly System.Windows.Forms.Timer timer = new() { Interval = 4000 };
@@ -41,11 +41,8 @@ sealed class OfficeWindow : ApplicationContext
         panel.Icon = icon;
         panel.Controls.Add(view);
         panel.FormClosing += (_, e) => { if (!quitting && e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; panel.Hide(); } };
-        panel.Deactivate += (_, _) => panel.Hide();
-        panel.VisibleChanged += async (_, _) =>
-        {
-            if (ready) await view.ExecuteScriptAsync($"window.setOfficeVisibility({(panel.Visible ? "true" : "false")})");
-        };
+        panel.VisibleChanged += async (_, _) => await UpdateVisibility();
+        panel.Resize += async (_, _) => await UpdateVisibility();
         menu.Items.Add("Open Agent Office", null, async (_, _) => await ShowOffice());
         menu.Items.Add("Quit", null, (_, _) => ExitThread());
         tray.Icon = icon;
@@ -67,6 +64,7 @@ sealed class OfficeWindow : ApplicationContext
         panel.Size = new Size(Math.Min(880, area.Width), Math.Min(670, area.Height));
         panel.Location = new Point(area.Left + (area.Width - panel.Width) / 2, area.Top + 12);
         panel.Show();
+        if (panel.WindowState == FormWindowState.Minimized) panel.WindowState = FormWindowState.Normal;
         panel.Activate();
         if (started) return;
         started = true;
@@ -94,7 +92,7 @@ sealed class OfficeWindow : ApplicationContext
                         ready = true;
                         rendered = null;
                         await Render();
-                        await view.ExecuteScriptAsync($"window.setOfficeVisibility({(panel.Visible ? "true" : "false")})");
+                        await UpdateVisibility();
                         break;
                     case "openSession":
                         await OpenSession(Sessions.Get(body, "id").Text());
@@ -114,6 +112,15 @@ sealed class OfficeWindow : ApplicationContext
             started = false;
             panel.Hide();
             MessageBox.Show(error.Message, "Agent Office could not open");
+        }
+    }
+
+    async Task UpdateVisibility()
+    {
+        if (ready && !quitting)
+        {
+            var visible = panel.Visible && panel.WindowState != FormWindowState.Minimized;
+            await view.ExecuteScriptAsync($"window.setOfficeVisibility({(visible ? "true" : "false")})");
         }
     }
 
